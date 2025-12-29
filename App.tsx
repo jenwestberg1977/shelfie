@@ -25,9 +25,9 @@ const App: React.FC = () => {
   const [dragOverBookId, setDragOverBookId] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedBooks = localStorage.getItem('biblio_books');
-    const savedTheme = localStorage.getItem('biblio_theme');
-    const savedColors = localStorage.getItem('biblio_colors');
+    const savedBooks = localStorage.getItem('shelfie_books');
+    const savedTheme = localStorage.getItem('shelfie_theme');
+    const savedColors = localStorage.getItem('shelfie_colors');
     
     if (savedBooks) {
       try {
@@ -47,9 +47,9 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('biblio_books', JSON.stringify(books));
-    localStorage.setItem('biblio_theme', activeTheme);
-    localStorage.setItem('biblio_colors', JSON.stringify(customColors));
+    localStorage.setItem('shelfie_books', JSON.stringify(books));
+    localStorage.setItem('shelfie_theme', activeTheme);
+    localStorage.setItem('shelfie_colors', JSON.stringify(customColors));
   }, [books, activeTheme, customColors]);
 
   const currentColors = useMemo(() => {
