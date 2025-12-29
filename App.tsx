@@ -152,7 +152,7 @@ const App: React.FC = () => {
               style={{ backgroundColor: `${currentColors.background}CC`, borderColor: `${currentColors.accent}33` }}>
         <div className="flex items-center gap-3">
           <BookIcon className="w-8 h-8" style={{ color: currentColors.accent }} />
-          <h1 className="text-2xl font-black tracking-tight">Shelfie</h1>
+          <h1 className="text-2xl font-black tracking-tight text-black">Shelfie</h1>
         </div>
 
         <div className="flex items-center gap-6">
