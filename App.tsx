@@ -153,6 +153,23 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to determine book size based on density
+  const getBookMetrics = (count: number) => {
+    if (count <= 6) return { width: 128, gap: 'gap-6', showText: true };
+    if (count <= 15) return { width: 100, gap: 'gap-4', showText: true };
+    if (count <= 30) return { width: 80, gap: 'gap-3', showText: false };
+    return { width: 64, gap: 'gap-2', showText: false };
+  };
+
+  // Helper to chunk the books array for multiple shelf lines
+  const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  };
+
   return (
     <div 
       className={`min-h-screen transition-colors duration-500 pb-20 relative ${themeClassName}`}
@@ -192,75 +209,106 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-10 space-y-16 relative z-10">
-        {TIERS.map(tier => (
-          <div 
-            key={tier.id}
-            onDragOver={e => { e.preventDefault(); setDragOverTier(tier.id); }}
-            onDragLeave={() => setDragOverTier(null)}
-            onDrop={() => onDropOnTier(tier.id)}
-            className={`shelf-row flex flex-col md:flex-row min-h-[180px] rounded-3xl transition-all ${dragOverTier === tier.id ? 'scale-[1.01] bg-black/5' : ''}`}
-          >
-            {/* Shelf Geometry */}
-            <div 
-              className="shelf-ledge transition-all"
-              style={{ 
-                backgroundColor: currentColors[tier.id],
-                filter: 'brightness(0.7)',
-                borderBottom: `2px solid rgba(0,0,0,0.2)`
-              }}
-            />
+      <main className="max-w-7xl mx-auto px-4 py-10 space-y-12 relative z-10">
+        {TIERS.map(tier => {
+          const tierBooks = booksByTier[tier.id];
+          const metrics = getBookMetrics(tierBooks.length);
+          const bookChunks = chunkArray(tierBooks, 20); // Each line holds 20 books
 
+          return (
             <div 
-              className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center rounded-l-3xl shadow-xl relative"
-              style={{ backgroundColor: currentColors[tier.id] }}
+              key={tier.id}
+              onDragOver={e => { e.preventDefault(); setDragOverTier(tier.id); }}
+              onDragLeave={() => setDragOverTier(null)}
+              onDrop={() => onDropOnTier(tier.id)}
+              className={`flex flex-col md:flex-row rounded-3xl transition-all overflow-hidden ${dragOverTier === tier.id ? 'scale-[1.01] bg-black/5' : ''}`}
             >
-              <span className="uppercase tracking-widest text-sm drop-shadow-sm">{tier.label}</span>
-              <div className="mt-2 text-xs opacity-60 font-bold">{booksByTier[tier.id].length} Books</div>
-            </div>
+              {/* Vertical Tier Label Container */}
+              <div 
+                className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center shadow-xl relative z-20 shrink-0"
+                style={{ backgroundColor: currentColors[tier.id] }}
+              >
+                <span className="uppercase tracking-widest text-sm drop-shadow-sm">{tier.label}</span>
+                <div className="mt-2 text-xs opacity-60 font-bold">{tierBooks.length} Books</div>
+              </div>
 
-            <div className="flex-1 p-6 flex flex-wrap gap-6 min-h-[140px] items-end pb-8">
-              {booksByTier[tier.id].map(book => (
-                <div 
-                  key={book.id} 
-                  draggable
-                  onDragStart={() => handleDragStart(book.id)}
-                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBookId(book.id); }}
-                  onDragLeave={() => setDragOverBookId(null)}
-                  onDrop={e => onDropOnBook(e, book.id, tier.id)}
-                  onDragEnd={resetDrag}
-                  onClick={() => setSelectedBook(book)}
-                  className={`group w-24 sm:w-32 cursor-pointer transition-all ${draggedBookId === book.id ? 'opacity-20 scale-90 grayscale' : 'hover:-translate-y-4'} ${dragOverBookId === book.id ? 'ring-4 ring-offset-4 ring-white' : ''}`}
-                  style={{ ['--tw-ring-color' as any]: currentColors.accent }}
-                >
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-2xl mb-2 bg-gray-200 border-b-4 border-black/10">
-                    <img src={book.coverUrl || 'https://picsum.photos/120/180'} className="w-full h-full object-cover" alt={book.title} />
-                    
-                    {/* Floating Actions on Card */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                      <button 
-                        onClick={(e) => handleCardDelete(e, book.id, book.title)}
-                        className="bg-red-500/80 hover:bg-red-600 p-1.5 rounded-lg text-white ml-auto backdrop-blur-sm transition-all shadow-md active:scale-90"
-                        title="Delete Book"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ChevronRight className="w-5 h-5 text-white ml-auto" />
+              {/* Shelves Container */}
+              <div className="flex-1 flex flex-col gap-12 bg-black/[0.02]">
+                {bookChunks.length > 0 ? (
+                  bookChunks.map((chunk, chunkIdx) => (
+                    <div key={`${tier.id}-shelf-${chunkIdx}`} className="shelf-row flex-1 p-6 flex flex-wrap items-end pb-8 relative">
+                      {/* Each chunk gets its own ledge */}
+                      <div 
+                        className="shelf-ledge transition-all"
+                        style={{ 
+                          backgroundColor: currentColors[tier.id],
+                          filter: 'brightness(0.7)',
+                          borderBottom: `2px solid rgba(0,0,0,0.2)`
+                        }}
+                      />
+                      
+                      <div className={`flex flex-wrap ${metrics.gap} w-full items-end`}>
+                        {chunk.map(book => (
+                          <div 
+                            key={book.id} 
+                            draggable
+                            onDragStart={() => handleDragStart(book.id)}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBookId(book.id); }}
+                            onDragLeave={() => setDragOverBookId(null)}
+                            onDrop={e => onDropOnBook(e, book.id, tier.id)}
+                            onDragEnd={resetDrag}
+                            onClick={() => setSelectedBook(book)}
+                            className={`group cursor-pointer transition-all ${draggedBookId === book.id ? 'opacity-20 scale-90 grayscale' : 'hover:-translate-y-4'} ${dragOverBookId === book.id ? 'ring-4 ring-offset-4 ring-white' : ''}`}
+                            style={{ 
+                              ['--tw-ring-color' as any]: currentColors.accent,
+                              width: `${metrics.width}px`
+                            }}
+                          >
+                            <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-2xl mb-2 bg-gray-200 border-b-4 border-black/10">
+                              <img src={book.coverUrl || 'https://picsum.photos/120/180'} className="w-full h-full object-cover" alt={book.title} />
+                              
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                                <button 
+                                  onClick={(e) => handleCardDelete(e, book.id, book.title)}
+                                  className="bg-red-500/80 hover:bg-red-600 p-1 rounded-lg text-white ml-auto backdrop-blur-sm transition-all shadow-md active:scale-90"
+                                  title="Delete Book"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <ChevronRight className="w-5 h-5 text-white ml-auto" />
+                              </div>
+                            </div>
+                            {metrics.showText && (
+                              <div className="overflow-hidden">
+                                <h3 className="font-bold text-[10px] leading-tight truncate px-1">{book.title}</h3>
+                                <p className="text-[9px] opacity-50 truncate px-1">{book.author}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="shelf-row flex-1 p-6 flex items-center justify-center pb-8 relative min-h-[140px]">
+                    <div 
+                      className="shelf-ledge transition-all"
+                      style={{ 
+                        backgroundColor: currentColors[tier.id],
+                        filter: 'brightness(0.7)',
+                        borderBottom: `2px solid rgba(0,0,0,0.2)`
+                      }}
+                    />
+                    <div className="opacity-10 font-black text-2xl uppercase italic tracking-tighter flex flex-col items-center gap-2">
+                      <BookOpen className="w-12 h-12" />
+                      <span>Empty Shelf</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-[10px] leading-tight truncate px-1">{book.title}</h3>
-                  <p className="text-[9px] opacity-50 truncate px-1">{book.author}</p>
-                </div>
-              ))}
-              {booksByTier[tier.id].length === 0 && (
-                <div className="w-full flex items-center justify-center py-10 opacity-10 font-black text-2xl uppercase italic tracking-tighter flex-col gap-2">
-                  <BookOpen className="w-12 h-12" />
-                  <span>Empty Shelf</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </main>
 
       {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} onAdd={addBooks} accentColor={currentColors.accent} />}
