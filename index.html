@@ -11,20 +11,78 @@
       font-family: 'Plus Jakarta Sans', sans-serif; 
       transition: background-color 0.5s ease;
       background-color: #f8fafc;
+      overflow-x: hidden;
     }
+
+    /* Bookshelf background texture */
+    .shelf-texture {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.15;
+      z-index: 0;
+      background-image: 
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 40px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 40px);
+    }
+
+    /* Botanical Garden: Organic Leaf Textures */
+    .theme-botanical-garden .shelf-texture {
+      opacity: 0.1;
+      background-image: radial-gradient(circle at 2px 2px, rgba(58, 90, 64, 0.2) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+
+    /* Midnight Galaxy: Stardust & Stars */
+    .theme-midnight-galaxy .shelf-texture {
+      opacity: 0.4;
+      background-image: 
+        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+        radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+      background-size: 550px 550px, 350px 350px, 250px 250px;
+      background-position: 0 0, 40px 60px, 130px 270px;
+    }
+
     .glass-morphism {
       background: rgba(255, 255, 255, 0.7);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
+    .shelf-row {
+      position: relative;
+      margin-bottom: 3rem;
+    }
+
+    /* The actual 3D shelf ledge */
+    .shelf-ledge {
+      position: absolute;
+      bottom: -12px;
+      left: 0;
+      right: 0;
+      height: 16px;
+      border-radius: 4px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      transform: perspective(1000px) rotateX(25deg);
+      z-index: -1;
+    }
+
+    .theme-midnight-galaxy .shelf-ledge {
+      box-shadow: 0 0 20px rgba(76, 201, 240, 0.2);
+      border-bottom: 2px solid rgba(76, 201, 240, 0.3);
+    }
+
     .tier-card {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
     .book-hover:hover {
       transform: translateY(-8px) rotate(1deg);
       box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     }
+
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
@@ -37,7 +95,8 @@
     "react": "https://esm.sh/react@^19.2.3",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "chart.js": "https://esm.sh/chart.js@^4.4.1"
   }
 }
 </script>

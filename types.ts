@@ -1,4 +1,3 @@
-
 export type TierId = 'TBR' | 'GOD' | 'A' | 'B' | 'C' | 'DNF';
 
 export type BookFormat = 'Audiobook' | 'Physical Book' | 'E-reader';
@@ -19,6 +18,8 @@ export interface Book {
   sessions: ReadingSession[];
   comments: string;
   dnfProgress: number; // 0-100
+  tags: string[];
+  pages: number; // Number of pages in the book
 }
 
 export interface ThemeColors {
@@ -33,4 +34,4 @@ export interface ThemeColors {
   text: string;
 }
 
-export type ThemePreset = 'Dark Academia' | 'Cyberpunk' | 'Pastel Dream' | 'Custom';
+export type ThemePreset = 'Botanical Garden' | 'Midnight Galaxy' | 'Pastel Dream' | 'Custom';
