@@ -22,7 +22,8 @@ const ThemeManager: React.FC<ThemeManagerProps> = ({
   setGoal,
   onClose 
 }) => {
-  const presets: ThemePreset[] = ['Dark Academia', 'Cyberpunk', 'Pastel Dream', 'Custom'];
+  // Fix: Updated preset names 'Dark Academia' and 'Cyberpunk' to 'Botanical Garden' and 'Midnight Galaxy' to match ThemePreset type
+  const presets: ThemePreset[] = ['Botanical Garden', 'Midnight Galaxy', 'Pastel Dream', 'Custom'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">

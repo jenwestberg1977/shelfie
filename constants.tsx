@@ -1,4 +1,3 @@
-
 import { TierId, ThemeColors, ThemePreset } from './types';
 
 export const TIERS: { id: TierId; label: string }[] = [
@@ -11,27 +10,27 @@ export const TIERS: { id: TierId; label: string }[] = [
 ];
 
 export const THEME_PRESETS: Record<ThemePreset, ThemeColors> = {
-  'Dark Academia': {
-    TBR: '#5D4037',
-    GOD: '#2C3E50',
-    A: '#1B4332',
-    B: '#7A6B5D',
-    C: '#8D7B68',
-    DNF: '#3E2723',
-    background: '#FDFCF0',
-    accent: '#4B3621',
-    text: '#2C1B0E',
+  'Botanical Garden': {
+    TBR: '#A3B18A', // Sage Leaf
+    GOD: '#E5989B', // Rose Petal
+    A: '#344E41',   // Hunter Green
+    B: '#6D597A',   // Lavender Twilight
+    C: '#B56576',   // Dried Terracotta
+    DNF: '#582F0E', // Earthy Bark
+    background: '#F1F3EE', // Soft Cream
+    accent: '#3A5A40',     // Forest Green
+    text: '#1B2E1D',       // Dark Ivy
   },
-  'Cyberpunk': {
-    TBR: '#1a1a2e',
-    GOD: '#ff0055',
-    A: '#00d4ff',
-    B: '#9d00ff',
-    C: '#00ff9f',
-    DNF: '#393e46',
-    background: '#0d0221',
-    accent: '#ff0055',
-    text: '#ffffff',
+  'Midnight Galaxy': {
+    TBR: '#1B263B', // Deep Space
+    GOD: '#E01E37', // Supernova
+    A: '#7209B7',   // Nebula Purple
+    B: '#4361EE',   // Comet Cyan
+    C: '#4A4E69',   // Asteroid Grey
+    DNF: '#0B090A', // Void
+    background: '#0D1117', // Obsidian
+    accent: '#4CC9F0',     // Starlight Blue
+    text: '#F8F9FA',       // Stellar White
   },
   'Pastel Dream': {
     TBR: '#B8E1FF',

@@ -3,25 +3,26 @@ import {
   BookOpen, 
   Settings, 
   Plus, 
-  Video,
-  ChevronRight
+  ChevronRight, 
+  Trash2, 
+  BarChart2 
 } from 'lucide-react';
 import { TIERS, THEME_PRESETS } from './constants';
 import { Book, TierId, ThemePreset, ThemeColors } from './types';
 import SearchPanel from './components/SearchPanel';
 import BookModal from './components/BookModal';
 import ThemeManager from './components/ThemeManager';
-import VeoAnimator from './components/VeoAnimator';
+import InsightsDashboard from './components/InsightsDashboard';
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [goal, setGoal] = useState<number>(12);
-  const [activeTheme, setActiveTheme] = useState<ThemePreset>('Dark Academia');
-  const [customColors, setCustomColors] = useState<ThemeColors>(THEME_PRESETS['Dark Academia']);
+  const [activeTheme, setActiveTheme] = useState<ThemePreset>('Botanical Garden');
+  const [customColors, setCustomColors] = useState<ThemeColors>(THEME_PRESETS['Botanical Garden']);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isThemeOpen, setIsThemeOpen] = useState(false);
-  const [isVeoOpen, setIsVeoOpen] = useState(false);
+  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
   const [draggedBookId, setDraggedBookId] = useState<string | null>(null);
   const [dragOverTier, setDragOverTier] = useState<TierId | null>(null);
   const [dragOverBookId, setDragOverBookId] = useState<string | null>(null);
@@ -34,7 +35,9 @@ const App: React.FC = () => {
     const savedGoal = localStorage.getItem('shelfie_goal');
     
     if (savedBooks) setBooks(JSON.parse(savedBooks));
-    if (savedTheme) setActiveTheme(savedTheme as ThemePreset);
+    if (savedTheme && (savedTheme === 'Botanical Garden' || savedTheme === 'Midnight Galaxy' || savedTheme === 'Pastel Dream' || savedTheme === 'Custom')) {
+      setActiveTheme(savedTheme as ThemePreset);
+    }
     if (savedColors) setCustomColors(JSON.parse(savedColors));
     if (savedGoal) setGoal(parseInt(savedGoal));
   }, []);
@@ -50,16 +53,30 @@ const App: React.FC = () => {
     return activeTheme === 'Custom' ? customColors : THEME_PRESETS[activeTheme];
   }, [activeTheme, customColors]);
 
-  const addBook = useCallback((newBook: Omit<Book, 'id' | 'tier' | 'sessions' | 'comments' | 'dnfProgress'>) => {
-    const book: Book = {
-      ...newBook,
-      id: Math.random().toString(36).substr(2, 9),
+  const themeClassName = useMemo(() => {
+    return `theme-${activeTheme.toLowerCase().replace(/\s+/g, '-')}`;
+  }, [activeTheme]);
+
+  const globalUsedTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    books.forEach(b => {
+      b.tags?.forEach(t => tagSet.add(t));
+    });
+    return Array.from(tagSet).sort();
+  }, [books]);
+
+  const addBooks = useCallback((newBooks: Omit<Book, 'id' | 'tier' | 'sessions' | 'comments' | 'dnfProgress' | 'tags'>[]) => {
+    const preparedBooks: Book[] = newBooks.map((nb, index) => ({
+      ...nb,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
       tier: 'TBR',
       sessions: [],
       comments: '',
       dnfProgress: 0,
-    };
-    setBooks(prev => [...prev, book]);
+      tags: [],
+      pages: nb.pages || 300,
+    }));
+    setBooks(prev => [...prev, ...preparedBooks]);
     setIsSearchOpen(false);
   }, []);
 
@@ -69,16 +86,15 @@ const App: React.FC = () => {
   }, []);
 
   const deleteBook = useCallback((id: string) => {
-    setBooks(prev => prev.filter(b => b.id !== id));
+    setBooks(prevBooks => prevBooks.filter(b => b.id !== id));
     setSelectedBook(null);
+    setDraggedBookId(null);
   }, []);
 
   const totalBooksRead = useMemo(() => {
     return books.reduce((acc, book) => {
-      // Standard completed tiers
       if (['GOD', 'A', 'B', 'C'].includes(book.tier)) return acc + 1;
-      // DNF counts only if > 80% progress
-      if (book.tier === 'DNF' && (book.dnfProgress || 0) > 80) return acc + 1;
+      if (book.tier === 'DNF' && (book.dnfProgress || 0) >= 80) return acc + 1;
       return acc;
     }, 0);
   }, [books]);
@@ -111,7 +127,11 @@ const App: React.FC = () => {
   };
 
   const handleDragStart = (id: string) => setDraggedBookId(id);
-  const resetDrag = () => { setDraggedBookId(null); setDragOverTier(null); setDragOverBookId(null); };
+  const resetDrag = () => { 
+    setDraggedBookId(null); 
+    setDragOverTier(null); 
+    setDragOverBookId(null); 
+  };
 
   const onDropOnTier = (tierId: TierId) => {
     if (draggedBookId) moveAndReorderBook(draggedBookId, tierId, null);
@@ -126,11 +146,20 @@ const App: React.FC = () => {
     resetDrag();
   };
 
+  const handleCardDelete = (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    if (window.confirm(`Delete "${title}"?`)) {
+      deleteBook(id);
+    }
+  };
+
   return (
     <div 
-      className="min-h-screen transition-colors duration-500 pb-20"
+      className={`min-h-screen transition-colors duration-500 pb-20 relative ${themeClassName}`}
       style={{ backgroundColor: currentColors.background, color: currentColors.text }}
     >
+      <div className="shelf-texture" />
+
       <header className="sticky top-0 z-30 shadow-md p-4 backdrop-blur-md flex items-center justify-between border-b" 
               style={{ backgroundColor: `${currentColors.background}CC`, borderColor: `${currentColors.accent}33` }}>
         <div className="flex items-center gap-3">
@@ -150,7 +179,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex gap-2">
-            <button onClick={() => setIsVeoOpen(true)} className="p-2 rounded-full border hover:bg-black/5" style={{ borderColor: currentColors.accent, color: currentColors.accent }} title="Animate Cover"><Video className="w-5 h-5" /></button>
+            <button onClick={() => setIsInsightsOpen(true)} className="p-2 rounded-full border hover:bg-black/5" style={{ borderColor: currentColors.accent, color: currentColors.accent }} title="View Insights"><BarChart2 className="w-5 h-5" /></button>
             <button onClick={() => setIsThemeOpen(true)} className="p-2 rounded-full border hover:bg-black/5" style={{ borderColor: currentColors.accent, color: currentColors.accent }} title="Settings"><Settings className="w-5 h-5" /></button>
             <button 
               onClick={() => setIsSearchOpen(true)}
@@ -163,28 +192,34 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-10 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 py-10 space-y-16 relative z-10">
         {TIERS.map(tier => (
           <div 
             key={tier.id}
             onDragOver={e => { e.preventDefault(); setDragOverTier(tier.id); }}
             onDragLeave={() => setDragOverTier(null)}
             onDrop={() => onDropOnTier(tier.id)}
-            className={`flex flex-col md:flex-row min-h-[180px] rounded-3xl overflow-hidden border-2 transition-all ${dragOverTier === tier.id ? 'scale-[1.01] border-dashed shadow-xl bg-black/5' : 'border-transparent shadow-sm'}`}
-            style={{ 
-              backgroundColor: `${currentColors[tier.id]}10`, 
-              borderColor: dragOverTier === tier.id ? currentColors[tier.id] : 'transparent'
-            }}
+            className={`shelf-row flex flex-col md:flex-row min-h-[180px] rounded-3xl transition-all ${dragOverTier === tier.id ? 'scale-[1.01] bg-black/5' : ''}`}
           >
+            {/* Shelf Geometry */}
             <div 
-              className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center"
+              className="shelf-ledge transition-all"
+              style={{ 
+                backgroundColor: currentColors[tier.id],
+                filter: 'brightness(0.7)',
+                borderBottom: `2px solid rgba(0,0,0,0.2)`
+              }}
+            />
+
+            <div 
+              className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center rounded-l-3xl shadow-xl relative"
               style={{ backgroundColor: currentColors[tier.id] }}
             >
               <span className="uppercase tracking-widest text-sm drop-shadow-sm">{tier.label}</span>
               <div className="mt-2 text-xs opacity-60 font-bold">{booksByTier[tier.id].length} Books</div>
             </div>
 
-            <div className="flex-1 p-6 flex flex-wrap gap-6 min-h-[140px] items-start">
+            <div className="flex-1 p-6 flex flex-wrap gap-6 min-h-[140px] items-end pb-8">
               {booksByTier[tier.id].map(book => (
                 <div 
                   key={book.id} 
@@ -193,13 +228,23 @@ const App: React.FC = () => {
                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBookId(book.id); }}
                   onDragLeave={() => setDragOverBookId(null)}
                   onDrop={e => onDropOnBook(e, book.id, tier.id)}
+                  onDragEnd={resetDrag}
                   onClick={() => setSelectedBook(book)}
-                  className={`group w-24 sm:w-32 cursor-pointer transition-all ${draggedBookId === book.id ? 'opacity-20 scale-90 grayscale' : 'hover:-translate-y-2'} ${dragOverBookId === book.id ? 'ring-4 ring-offset-4 ring-white' : ''}`}
+                  className={`group w-24 sm:w-32 cursor-pointer transition-all ${draggedBookId === book.id ? 'opacity-20 scale-90 grayscale' : 'hover:-translate-y-4'} ${dragOverBookId === book.id ? 'ring-4 ring-offset-4 ring-white' : ''}`}
                   style={{ ['--tw-ring-color' as any]: currentColors.accent }}
                 >
-                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg mb-2 bg-gray-200">
+                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-2xl mb-2 bg-gray-200 border-b-4 border-black/10">
                     <img src={book.coverUrl || 'https://picsum.photos/120/180'} className="w-full h-full object-cover" alt={book.title} />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                    
+                    {/* Floating Actions on Card */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                      <button 
+                        onClick={(e) => handleCardDelete(e, book.id, book.title)}
+                        className="bg-red-500/80 hover:bg-red-600 p-1.5 rounded-lg text-white ml-auto backdrop-blur-sm transition-all shadow-md active:scale-90"
+                        title="Delete Book"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                       <ChevronRight className="w-5 h-5 text-white ml-auto" />
                     </div>
                   </div>
@@ -218,10 +263,19 @@ const App: React.FC = () => {
         ))}
       </main>
 
-      {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} onAdd={addBook} accentColor={currentColors.accent} />}
+      {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} onAdd={addBooks} accentColor={currentColors.accent} />}
       {isThemeOpen && <ThemeManager activeTheme={activeTheme} setActiveTheme={setActiveTheme} customColors={customColors} setCustomColors={setCustomColors} goal={goal} setGoal={setGoal} onClose={() => setIsThemeOpen(false)} />}
-      {isVeoOpen && <VeoAnimator onClose={() => setIsVeoOpen(false)} accentColor={currentColors.accent} />}
-      {selectedBook && <BookModal book={selectedBook} onClose={() => setSelectedBook(null)} onSave={updateBook} onDelete={deleteBook} accentColor={currentColors.accent} />}
+      {isInsightsOpen && <InsightsDashboard books={books} onClose={() => setIsInsightsOpen(false)} currentColors={currentColors} />}
+      {selectedBook && (
+        <BookModal 
+          book={selectedBook} 
+          globalTags={globalUsedTags}
+          onClose={() => setSelectedBook(null)} 
+          onSave={updateBook} 
+          onDelete={deleteBook} 
+          accentColor={currentColors.accent} 
+        />
+      )}
     </div>
   );
 };
