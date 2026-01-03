@@ -5,10 +5,12 @@ import {
   Plus, 
   ChevronRight, 
   Trash2, 
-  BarChart2 
+  BarChart2,
+  Download,
+  Upload
 } from 'lucide-react';
-import { TIERS, THEME_PRESETS } from './constants';
-import { Book, TierId, ThemePreset, ThemeColors } from './types';
+import { DEFAULT_TIERS, THEME_PRESETS } from './constants';
+import { Book, TierId, ThemePreset, ThemeColors, TierDefinition } from './types';
 import SearchPanel from './components/SearchPanel';
 import BookModal from './components/BookModal';
 import ThemeManager from './components/ThemeManager';
@@ -16,6 +18,7 @@ import InsightsDashboard from './components/InsightsDashboard';
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
+  const [tiers, setTiers] = useState<TierDefinition[]>(DEFAULT_TIERS);
   const [goal, setGoal] = useState<number>(12);
   const [activeTheme, setActiveTheme] = useState<ThemePreset>('Botanical Garden');
   const [customColors, setCustomColors] = useState<ThemeColors>(THEME_PRESETS['Botanical Garden']);
@@ -30,28 +33,37 @@ const App: React.FC = () => {
   // Persistence
   useEffect(() => {
     const savedBooks = localStorage.getItem('shelfie_books');
+    const savedTiers = localStorage.getItem('shelfie_tiers');
     const savedTheme = localStorage.getItem('shelfie_theme');
     const savedColors = localStorage.getItem('shelfie_colors');
     const savedGoal = localStorage.getItem('shelfie_goal');
     
     if (savedBooks) setBooks(JSON.parse(savedBooks));
-    if (savedTheme && (savedTheme === 'Botanical Garden' || savedTheme === 'Midnight Galaxy' || savedTheme === 'Pastel Dream' || savedTheme === 'Custom')) {
-      setActiveTheme(savedTheme as ThemePreset);
-    }
+    if (savedTiers) setTiers(JSON.parse(savedTiers));
+    if (savedTheme) setActiveTheme(savedTheme as ThemePreset);
     if (savedColors) setCustomColors(JSON.parse(savedColors));
     if (savedGoal) setGoal(parseInt(savedGoal));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('shelfie_books', JSON.stringify(books));
+    localStorage.setItem('shelfie_tiers', JSON.stringify(tiers));
     localStorage.setItem('shelfie_theme', activeTheme);
     localStorage.setItem('shelfie_colors', JSON.stringify(customColors));
     localStorage.setItem('shelfie_goal', goal.toString());
-  }, [books, activeTheme, customColors, goal]);
+  }, [books, tiers, activeTheme, customColors, goal]);
 
   const currentColors = useMemo(() => {
-    return activeTheme === 'Custom' ? customColors : THEME_PRESETS[activeTheme];
-  }, [activeTheme, customColors]);
+    const themeColors = activeTheme === 'Custom' ? customColors : THEME_PRESETS[activeTheme];
+    // Ensure all current tiers have a color in the current set
+    const mergedColors = { ...themeColors };
+    tiers.forEach(t => {
+      if (!mergedColors[t.id]) {
+        mergedColors[t.id] = t.color;
+      }
+    });
+    return mergedColors;
+  }, [activeTheme, customColors, tiers]);
 
   const themeClassName = useMemo(() => {
     return `theme-${activeTheme.toLowerCase().replace(/\s+/g, '-')}`;
@@ -69,7 +81,7 @@ const App: React.FC = () => {
     const preparedBooks: Book[] = newBooks.map((nb, index) => ({
       ...nb,
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
-      tier: 'TBR',
+      tier: tiers[0]?.id || 'TBR',
       sessions: [],
       comments: '',
       dnfProgress: 0,
@@ -78,7 +90,7 @@ const App: React.FC = () => {
     }));
     setBooks(prev => [...prev, ...preparedBooks]);
     setIsSearchOpen(false);
-  }, []);
+  }, [tiers]);
 
   const updateBook = useCallback((updatedBook: Book) => {
     setBooks(prev => prev.map(b => b.id === updatedBook.id ? updatedBook : b));
@@ -92,20 +104,33 @@ const App: React.FC = () => {
   }, []);
 
   const totalBooksRead = useMemo(() => {
+    const godTier = tiers.find(t => t.label.toLowerCase().includes('god'))?.id;
+    const aTier = tiers.find(t => t.label.toLowerCase().includes('a tier'))?.id;
+    const bTier = tiers.find(t => t.label.toLowerCase().includes('b tier'))?.id;
+    const cTier = tiers.find(t => t.label.toLowerCase().includes('c tier'))?.id;
+    const dnfTier = tiers.find(t => t.label.toLowerCase().includes('dnf'))?.id;
+
+    const readTiers = [godTier, aTier, bTier, cTier].filter(Boolean);
+
     return books.reduce((acc, book) => {
-      if (['GOD', 'A', 'B', 'C'].includes(book.tier)) return acc + 1;
-      if (book.tier === 'DNF' && (book.dnfProgress || 0) >= 80) return acc + 1;
+      if (readTiers.includes(book.tier)) return acc + 1;
+      if (book.tier === dnfTier && (book.dnfProgress || 0) >= 80) return acc + 1;
       return acc;
     }, 0);
-  }, [books]);
+  }, [books, tiers]);
 
   const booksByTier = useMemo(() => {
-    const map: Record<TierId, Book[]> = {
-      TBR: [], GOD: [], A: [], B: [], C: [], DNF: []
-    };
-    books.forEach(b => map[b.tier].push(b));
+    const map: Record<TierId, Book[]> = {};
+    tiers.forEach(t => map[t.id] = []);
+    books.forEach(b => {
+      if (map[b.tier]) map[b.tier].push(b);
+      else if (tiers.length > 0) {
+        // Fallback for orphaned books
+        map[tiers[0].id].push(b);
+      }
+    });
     return map;
-  }, [books]);
+  }, [books, tiers]);
 
   const moveAndReorderBook = (dragId: string, targetTier: TierId, targetBookId: string | null) => {
     setBooks(prev => {
@@ -312,8 +337,23 @@ const App: React.FC = () => {
       </main>
 
       {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} onAdd={addBooks} accentColor={currentColors.accent} />}
-      {isThemeOpen && <ThemeManager activeTheme={activeTheme} setActiveTheme={setActiveTheme} customColors={customColors} setCustomColors={setCustomColors} goal={goal} setGoal={setGoal} onClose={() => setIsThemeOpen(false)} />}
-      {isInsightsOpen && <InsightsDashboard books={books} onClose={() => setIsInsightsOpen(false)} currentColors={currentColors} />}
+      {isThemeOpen && (
+        <ThemeManager 
+          activeTheme={activeTheme} 
+          setActiveTheme={setActiveTheme} 
+          customColors={customColors} 
+          setCustomColors={setCustomColors} 
+          goal={goal} 
+          setGoal={setGoal} 
+          onClose={() => setIsThemeOpen(false)} 
+          tiers={tiers}
+          setTiers={setTiers}
+          onExport={handleExport}
+          onImport={handleImport}
+        />
+      )}
+      {/* Fix: Pass tiers to InsightsDashboard */}
+      {isInsightsOpen && <InsightsDashboard books={books} tiers={tiers} onClose={() => setIsInsightsOpen(false)} currentColors={currentColors} />}
       {selectedBook && (
         <BookModal 
           book={selectedBook} 
@@ -321,7 +361,8 @@ const App: React.FC = () => {
           onClose={() => setSelectedBook(null)} 
           onSave={updateBook} 
           onDelete={deleteBook} 
-          accentColor={currentColors.accent} 
+          accentColor={currentColors.accent}
+          tiers={tiers}
         />
       )}
     </div>
