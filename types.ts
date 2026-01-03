@@ -1,4 +1,4 @@
-export type TierId = 'TBR' | 'GOD' | 'A' | 'B' | 'C' | 'DNF';
+export type TierId = string;
 
 export type BookFormat = 'Audiobook' | 'Physical Book' | 'E-reader';
 
@@ -22,13 +22,14 @@ export interface Book {
   pages: number; // Number of pages in the book
 }
 
+export interface TierDefinition {
+  id: TierId;
+  label: string;
+  color: string;
+}
+
 export interface ThemeColors {
-  TBR: string;
-  GOD: string;
-  A: string;
-  B: string;
-  C: string;
-  DNF: string;
+  [key: string]: string; // Support dynamic tier IDs
   background: string;
   accent: string;
   text: string;

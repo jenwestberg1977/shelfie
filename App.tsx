@@ -5,10 +5,12 @@ import {
   Plus, 
   ChevronRight, 
   Trash2, 
-  BarChart2 
+  BarChart2,
+  Download,
+  Upload
 } from 'lucide-react';
-import { TIERS, THEME_PRESETS } from './constants';
-import { Book, TierId, ThemePreset, ThemeColors } from './types';
+import { DEFAULT_TIERS, THEME_PRESETS } from './constants';
+import { Book, TierId, ThemePreset, ThemeColors, TierDefinition } from './types';
 import SearchPanel from './components/SearchPanel';
 import BookModal from './components/BookModal';
 import ThemeManager from './components/ThemeManager';
@@ -16,6 +18,7 @@ import InsightsDashboard from './components/InsightsDashboard';
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
+  const [tiers, setTiers] = useState<TierDefinition[]>(DEFAULT_TIERS);
   const [goal, setGoal] = useState<number>(12);
   const [activeTheme, setActiveTheme] = useState<ThemePreset>('Botanical Garden');
   const [customColors, setCustomColors] = useState<ThemeColors>(THEME_PRESETS['Botanical Garden']);
@@ -30,28 +33,37 @@ const App: React.FC = () => {
   // Persistence
   useEffect(() => {
     const savedBooks = localStorage.getItem('shelfie_books');
+    const savedTiers = localStorage.getItem('shelfie_tiers');
     const savedTheme = localStorage.getItem('shelfie_theme');
     const savedColors = localStorage.getItem('shelfie_colors');
     const savedGoal = localStorage.getItem('shelfie_goal');
     
     if (savedBooks) setBooks(JSON.parse(savedBooks));
-    if (savedTheme && (savedTheme === 'Botanical Garden' || savedTheme === 'Midnight Galaxy' || savedTheme === 'Pastel Dream' || savedTheme === 'Custom')) {
-      setActiveTheme(savedTheme as ThemePreset);
-    }
+    if (savedTiers) setTiers(JSON.parse(savedTiers));
+    if (savedTheme) setActiveTheme(savedTheme as ThemePreset);
     if (savedColors) setCustomColors(JSON.parse(savedColors));
     if (savedGoal) setGoal(parseInt(savedGoal));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('shelfie_books', JSON.stringify(books));
+    localStorage.setItem('shelfie_tiers', JSON.stringify(tiers));
     localStorage.setItem('shelfie_theme', activeTheme);
     localStorage.setItem('shelfie_colors', JSON.stringify(customColors));
     localStorage.setItem('shelfie_goal', goal.toString());
-  }, [books, activeTheme, customColors, goal]);
+  }, [books, tiers, activeTheme, customColors, goal]);
 
   const currentColors = useMemo(() => {
-    return activeTheme === 'Custom' ? customColors : THEME_PRESETS[activeTheme];
-  }, [activeTheme, customColors]);
+    const themeColors = activeTheme === 'Custom' ? customColors : THEME_PRESETS[activeTheme];
+    // Ensure all current tiers have a color in the current set
+    const mergedColors = { ...themeColors };
+    tiers.forEach(t => {
+      if (!mergedColors[t.id]) {
+        mergedColors[t.id] = t.color;
+      }
+    });
+    return mergedColors;
+  }, [activeTheme, customColors, tiers]);
 
   const themeClassName = useMemo(() => {
     return `theme-${activeTheme.toLowerCase().replace(/\s+/g, '-')}`;
@@ -69,7 +81,7 @@ const App: React.FC = () => {
     const preparedBooks: Book[] = newBooks.map((nb, index) => ({
       ...nb,
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
-      tier: 'TBR',
+      tier: tiers[0]?.id || 'TBR',
       sessions: [],
       comments: '',
       dnfProgress: 0,
@@ -78,7 +90,7 @@ const App: React.FC = () => {
     }));
     setBooks(prev => [...prev, ...preparedBooks]);
     setIsSearchOpen(false);
-  }, []);
+  }, [tiers]);
 
   const updateBook = useCallback((updatedBook: Book) => {
     setBooks(prev => prev.map(b => b.id === updatedBook.id ? updatedBook : b));
@@ -92,20 +104,33 @@ const App: React.FC = () => {
   }, []);
 
   const totalBooksRead = useMemo(() => {
+    const godTier = tiers.find(t => t.label.toLowerCase().includes('god'))?.id;
+    const aTier = tiers.find(t => t.label.toLowerCase().includes('a tier'))?.id;
+    const bTier = tiers.find(t => t.label.toLowerCase().includes('b tier'))?.id;
+    const cTier = tiers.find(t => t.label.toLowerCase().includes('c tier'))?.id;
+    const dnfTier = tiers.find(t => t.label.toLowerCase().includes('dnf'))?.id;
+
+    const readTiers = [godTier, aTier, bTier, cTier].filter(Boolean);
+
     return books.reduce((acc, book) => {
-      if (['GOD', 'A', 'B', 'C'].includes(book.tier)) return acc + 1;
-      if (book.tier === 'DNF' && (book.dnfProgress || 0) >= 80) return acc + 1;
+      if (readTiers.includes(book.tier)) return acc + 1;
+      if (book.tier === dnfTier && (book.dnfProgress || 0) >= 80) return acc + 1;
       return acc;
     }, 0);
-  }, [books]);
+  }, [books, tiers]);
 
   const booksByTier = useMemo(() => {
-    const map: Record<TierId, Book[]> = {
-      TBR: [], GOD: [], A: [], B: [], C: [], DNF: []
-    };
-    books.forEach(b => map[b.tier].push(b));
+    const map: Record<TierId, Book[]> = {};
+    tiers.forEach(t => map[t.id] = []);
+    books.forEach(b => {
+      if (map[b.tier]) map[b.tier].push(b);
+      else if (tiers.length > 0) {
+        // Fallback for orphaned books
+        map[tiers[0].id].push(b);
+      }
+    });
     return map;
-  }, [books]);
+  }, [books, tiers]);
 
   const moveAndReorderBook = (dragId: string, targetTier: TierId, targetBookId: string | null) => {
     setBooks(prev => {
@@ -153,7 +178,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to determine book size based on density
   const getBookMetrics = (count: number) => {
     if (count <= 6) return { width: 128, gap: 'gap-6', showText: true };
     if (count <= 15) return { width: 100, gap: 'gap-4', showText: true };
@@ -161,13 +185,52 @@ const App: React.FC = () => {
     return { width: 64, gap: 'gap-2', showText: false };
   };
 
-  // Helper to chunk the books array for multiple shelf lines
   const chunkArray = <T,>(arr: T[], size: number): T[][] => {
     const chunks: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {
       chunks.push(arr.slice(i, i + size));
     }
     return chunks;
+  };
+
+  // Data Management
+  const handleExport = () => {
+    const data = {
+      books,
+      tiers,
+      goal,
+      activeTheme,
+      customColors,
+      version: '2.0'
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shelfie-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.books) setBooks(data.books);
+        if (data.tiers) setTiers(data.tiers);
+        if (data.goal) setGoal(data.goal);
+        if (data.activeTheme) setActiveTheme(data.activeTheme);
+        if (data.customColors) setCustomColors(data.customColors);
+        alert('Library imported successfully!');
+      } catch (err) {
+        alert('Failed to import library. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -210,10 +273,10 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-10 space-y-12 relative z-10">
-        {TIERS.map(tier => {
-          const tierBooks = booksByTier[tier.id];
+        {tiers.map(tier => {
+          const tierBooks = booksByTier[tier.id] || [];
           const metrics = getBookMetrics(tierBooks.length);
-          const bookChunks = chunkArray(tierBooks, 20); // Each line holds 20 books
+          const bookChunks = chunkArray(tierBooks, 20);
 
           return (
             <div 
@@ -223,32 +286,30 @@ const App: React.FC = () => {
               onDrop={() => onDropOnTier(tier.id)}
               className={`flex flex-col md:flex-row rounded-3xl transition-all overflow-hidden ${dragOverTier === tier.id ? 'scale-[1.01] bg-black/5' : ''}`}
             >
-              {/* Vertical Tier Label Container */}
               <div 
                 className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center shadow-xl relative z-20 shrink-0"
-                style={{ backgroundColor: currentColors[tier.id] }}
+                style={{ backgroundColor: currentColors[tier.id] || tier.color }}
               >
                 <span className="uppercase tracking-widest text-sm drop-shadow-sm">{tier.label}</span>
                 <div className="mt-2 text-xs opacity-60 font-bold">{tierBooks.length} Books</div>
               </div>
 
-              {/* Shelves Container */}
               <div className="flex-1 flex flex-col gap-12 bg-black/[0.02]">
                 {bookChunks.length > 0 ? (
                   bookChunks.map((chunk, chunkIdx) => (
                     <div key={`${tier.id}-shelf-${chunkIdx}`} className="shelf-row flex-1 p-6 flex flex-wrap items-end pb-8 relative">
-                      {/* Each chunk gets its own ledge */}
                       <div 
                         className="shelf-ledge transition-all"
                         style={{ 
-                          backgroundColor: currentColors[tier.id],
+                          backgroundColor: currentColors[tier.id] || tier.color,
                           filter: 'brightness(0.7)',
                           borderBottom: `2px solid rgba(0,0,0,0.2)`
                         }}
                       />
                       
                       <div className={`flex flex-wrap ${metrics.gap} w-full items-end`}>
-                        {chunk.map(book => (
+                        {/* Fix: Explicitly type book as Book to resolve 'unknown' type property access errors */}
+                        {chunk.map((book: Book) => (
                           <div 
                             key={book.id} 
                             draggable
@@ -294,7 +355,7 @@ const App: React.FC = () => {
                     <div 
                       className="shelf-ledge transition-all"
                       style={{ 
-                        backgroundColor: currentColors[tier.id],
+                        backgroundColor: currentColors[tier.id] || tier.color,
                         filter: 'brightness(0.7)',
                         borderBottom: `2px solid rgba(0,0,0,0.2)`
                       }}
@@ -312,8 +373,23 @@ const App: React.FC = () => {
       </main>
 
       {isSearchOpen && <SearchPanel onClose={() => setIsSearchOpen(false)} onAdd={addBooks} accentColor={currentColors.accent} />}
-      {isThemeOpen && <ThemeManager activeTheme={activeTheme} setActiveTheme={setActiveTheme} customColors={customColors} setCustomColors={setCustomColors} goal={goal} setGoal={setGoal} onClose={() => setIsThemeOpen(false)} />}
-      {isInsightsOpen && <InsightsDashboard books={books} onClose={() => setIsInsightsOpen(false)} currentColors={currentColors} />}
+      {isThemeOpen && (
+        <ThemeManager 
+          activeTheme={activeTheme} 
+          setActiveTheme={setActiveTheme} 
+          customColors={customColors} 
+          setCustomColors={setCustomColors} 
+          goal={goal} 
+          setGoal={setGoal} 
+          onClose={() => setIsThemeOpen(false)} 
+          tiers={tiers}
+          setTiers={setTiers}
+          onExport={handleExport}
+          onImport={handleImport}
+        />
+      )}
+      {/* Fix: Pass tiers to InsightsDashboard */}
+      {isInsightsOpen && <InsightsDashboard books={books} tiers={tiers} onClose={() => setIsInsightsOpen(false)} currentColors={currentColors} />}
       {selectedBook && (
         <BookModal 
           book={selectedBook} 
@@ -321,7 +397,8 @@ const App: React.FC = () => {
           onClose={() => setSelectedBook(null)} 
           onSave={updateBook} 
           onDelete={deleteBook} 
-          accentColor={currentColors.accent} 
+          accentColor={currentColors.accent}
+          tiers={tiers}
         />
       )}
     </div>

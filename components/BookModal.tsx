@@ -16,8 +16,7 @@ import {
   Clock,
   TrendingUp
 } from 'lucide-react';
-import { Book, BookFormat, ReadingSession } from '../types';
-import { TIERS } from '../constants';
+import { Book, BookFormat, ReadingSession, TierDefinition } from '../types';
 
 interface BookModalProps {
   book: Book;
@@ -26,9 +25,10 @@ interface BookModalProps {
   onSave: (book: Book) => void;
   onDelete: (id: string) => void;
   accentColor: string;
+  tiers: TierDefinition[];
 }
 
-const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave, onDelete, accentColor }) => {
+const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave, onDelete, accentColor, tiers }) => {
   const [editedBook, setEditedBook] = useState<Book>({ ...book, tags: book.tags || [], pages: book.pages || 300 });
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState(false);
@@ -114,7 +114,6 @@ const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - start.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-      // Estimate progress for ongoing
       const progress = editedBook.dnfProgress ? (editedBook.dnfProgress / 100) : 0.5;
       pace = Math.round((editedBook.pages * progress) / diffDays) || 1;
     }
@@ -189,7 +188,7 @@ const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave
             </div>
 
             <div className="pt-6 border-t grid grid-cols-2 gap-2">
-              {TIERS.map(t => (
+              {tiers.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setEditedBook(prev => ({ ...prev, tier: t.id }))}
@@ -204,7 +203,7 @@ const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave
             {readingStats && (
               <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100 flex items-center gap-4">
-                  <div className="p-3 bg-white rounded-2xl shadow-sm text-indigo-600" style={{ color: accentColor }}>
+                  <div className="p-3 bg-white rounded-2xl shadow-sm" style={{ color: accentColor }}>
                     <TrendingUp className="w-6 h-6" />
                   </div>
                   <div>

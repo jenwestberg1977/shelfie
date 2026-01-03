@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
@@ -14,23 +13,24 @@ import {
   registerables, 
   ChartConfiguration 
 } from 'chart.js';
-import { Book, ThemeColors, TierId } from '../types';
-import { TIERS } from '../constants';
+import { Book, ThemeColors, TierId, TierDefinition } from '../types';
 
 Chart.register(...registerables);
 
 interface InsightsDashboardProps {
   books: Book[];
+  tiers: TierDefinition[];
   currentColors: ThemeColors;
   onClose: () => void;
 }
 
-const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentColors, onClose }) => {
+const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, tiers, currentColors, onClose }) => {
   const formatChartRef = useRef<HTMLCanvasElement>(null);
   const tierChartRef = useRef<HTMLCanvasElement>(null);
   const chartInstances = useRef<{ format?: Chart; tier?: Chart }>({});
 
   const stats = useMemo(() => {
+    // Basic heuristics for "finished" based on common tier labels
     const finishedBooks = books.filter(b => ['GOD', 'A', 'B', 'C'].includes(b.tier) || (b.tier === 'DNF' && b.dnfProgress >= 80));
     const totalPages = finishedBooks.reduce((sum, b) => sum + (b.pages || 0), 0);
     
@@ -55,18 +55,18 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
       });
     });
 
-    // Tier distribution
-    const tierCounts: Record<TierId, number> = { TBR: 0, GOD: 0, A: 0, B: 0, C: 0, DNF: 0 };
+    // Tier distribution - Dynamic based on current tiers
+    const tierCounts: Record<TierId, number> = {};
+    tiers.forEach(t => { tierCounts[t.id] = 0; });
     books.forEach(b => {
-      tierCounts[b.tier]++;
+      if (tierCounts[b.tier] !== undefined) tierCounts[b.tier]++;
     });
 
     return { formatCounts, tierCounts };
-  }, [books]);
+  }, [books, tiers]);
 
   useEffect(() => {
-    // Cleanup old charts
-    // Fix: Explicitly destroy chart instances to avoid 'unknown' type error from Object.values which can occur in some TS environments
+    // Cleanup old charts to avoid 'unknown' type error from Object.values or re-initialization on canvas
     if (chartInstances.current.format) {
       chartInstances.current.format.destroy();
     }
@@ -84,8 +84,8 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
             data: Object.values(chartData.formatCounts),
             backgroundColor: [
               `${currentColors.accent}BB`,
-              `${currentColors.GOD}BB`,
-              `${currentColors.TBR}BB`
+              `${currentColors.GOD || '#E5989B'}BB`,
+              `${currentColors.TBR || '#A3B18A'}BB`
             ],
             borderColor: '#ffffff',
             borderWidth: 2
@@ -108,11 +108,11 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
       chartInstances.current.format = new Chart(formatChartRef.current, config);
     }
 
-    // Tier Bar Chart
+    // Tier Bar Chart - Use passed tiers prop instead of constant
     if (tierChartRef.current) {
-      const labels = TIERS.map(t => t.label);
-      const data = TIERS.map(t => chartData.tierCounts[t.id]);
-      const colors = TIERS.map(t => currentColors[t.id]);
+      const labels = tiers.map(t => t.label);
+      const data = tiers.map(t => chartData.tierCounts[t.id]);
+      const colors = tiers.map(t => currentColors[t.id] || t.color);
 
       const config: ChartConfiguration<'bar'> = {
         type: 'bar',
@@ -149,8 +149,7 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
     }
 
     return () => {
-      // Cleanup old charts on unmount
-      // Fix: Explicitly destroy chart instances to avoid 'unknown' type error
+      // Cleanup charts on unmount
       if (chartInstances.current.format) {
         chartInstances.current.format.destroy();
       }
@@ -158,7 +157,7 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
         chartInstances.current.tier.destroy();
       }
     };
-  }, [chartData, currentColors]);
+  }, [chartData, currentColors, tiers]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
@@ -190,7 +189,7 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
             </div>
             
             <div className="p-8 rounded-[32px] bg-white/5 border border-white/10 flex items-center gap-6">
-              <div className="p-4 rounded-2xl shadow-sm" style={{ backgroundColor: `${currentColors.DNF}20`, color: currentColors.DNF }}>
+              <div className="p-4 rounded-2xl shadow-sm" style={{ backgroundColor: `${currentColors.DNF || '#582F0E'}20`, color: currentColors.DNF || '#582F0E' }}>
                 <Target className="w-8 h-8" />
               </div>
               <div>
@@ -200,7 +199,7 @@ const InsightsDashboard: React.FC<InsightsDashboardProps> = ({ books, currentCol
             </div>
 
             <div className="p-8 rounded-[32px] bg-white/5 border border-white/10 flex items-center gap-6">
-              <div className="p-4 rounded-2xl shadow-sm" style={{ backgroundColor: `${currentColors.GOD}20`, color: currentColors.GOD }}>
+              <div className="p-4 rounded-2xl shadow-sm" style={{ backgroundColor: `${currentColors.GOD || '#E5989B'}20`, color: currentColors.GOD || '#E5989B' }}>
                 <Award className="w-8 h-8" />
               </div>
               <div className="flex-1 overflow-hidden">
