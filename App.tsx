@@ -178,6 +178,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to determine book size based on density
   const getBookMetrics = (count: number) => {
     if (count <= 6) return { width: 128, gap: 'gap-6', showText: true };
     if (count <= 15) return { width: 100, gap: 'gap-4', showText: true };
@@ -185,52 +186,13 @@ const App: React.FC = () => {
     return { width: 64, gap: 'gap-2', showText: false };
   };
 
+  // Helper to chunk the books array for multiple shelf lines
   const chunkArray = <T,>(arr: T[], size: number): T[][] => {
     const chunks: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {
       chunks.push(arr.slice(i, i + size));
     }
     return chunks;
-  };
-
-  // Data Management
-  const handleExport = () => {
-    const data = {
-      books,
-      tiers,
-      goal,
-      activeTheme,
-      customColors,
-      version: '2.0'
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `shelfie-export-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.books) setBooks(data.books);
-        if (data.tiers) setTiers(data.tiers);
-        if (data.goal) setGoal(data.goal);
-        if (data.activeTheme) setActiveTheme(data.activeTheme);
-        if (data.customColors) setCustomColors(data.customColors);
-        alert('Library imported successfully!');
-      } catch (err) {
-        alert('Failed to import library. Please check the file format.');
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -273,10 +235,10 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-10 space-y-12 relative z-10">
-        {tiers.map(tier => {
-          const tierBooks = booksByTier[tier.id] || [];
+        {TIERS.map(tier => {
+          const tierBooks = booksByTier[tier.id];
           const metrics = getBookMetrics(tierBooks.length);
-          const bookChunks = chunkArray(tierBooks, 20);
+          const bookChunks = chunkArray(tierBooks, 20); // Each line holds 20 books
 
           return (
             <div 
@@ -286,30 +248,32 @@ const App: React.FC = () => {
               onDrop={() => onDropOnTier(tier.id)}
               className={`flex flex-col md:flex-row rounded-3xl transition-all overflow-hidden ${dragOverTier === tier.id ? 'scale-[1.01] bg-black/5' : ''}`}
             >
+              {/* Vertical Tier Label Container */}
               <div 
                 className="md:w-36 p-6 flex flex-col items-center justify-center text-white font-black text-center shadow-xl relative z-20 shrink-0"
-                style={{ backgroundColor: currentColors[tier.id] || tier.color }}
+                style={{ backgroundColor: currentColors[tier.id] }}
               >
                 <span className="uppercase tracking-widest text-sm drop-shadow-sm">{tier.label}</span>
                 <div className="mt-2 text-xs opacity-60 font-bold">{tierBooks.length} Books</div>
               </div>
 
+              {/* Shelves Container */}
               <div className="flex-1 flex flex-col gap-12 bg-black/[0.02]">
                 {bookChunks.length > 0 ? (
                   bookChunks.map((chunk, chunkIdx) => (
                     <div key={`${tier.id}-shelf-${chunkIdx}`} className="shelf-row flex-1 p-6 flex flex-wrap items-end pb-8 relative">
+                      {/* Each chunk gets its own ledge */}
                       <div 
                         className="shelf-ledge transition-all"
                         style={{ 
-                          backgroundColor: currentColors[tier.id] || tier.color,
+                          backgroundColor: currentColors[tier.id],
                           filter: 'brightness(0.7)',
                           borderBottom: `2px solid rgba(0,0,0,0.2)`
                         }}
                       />
                       
                       <div className={`flex flex-wrap ${metrics.gap} w-full items-end`}>
-                        {/* Fix: Explicitly type book as Book to resolve 'unknown' type property access errors */}
-                        {chunk.map((book: Book) => (
+                        {chunk.map(book => (
                           <div 
                             key={book.id} 
                             draggable
@@ -355,7 +319,7 @@ const App: React.FC = () => {
                     <div 
                       className="shelf-ledge transition-all"
                       style={{ 
-                        backgroundColor: currentColors[tier.id] || tier.color,
+                        backgroundColor: currentColors[tier.id],
                         filter: 'brightness(0.7)',
                         borderBottom: `2px solid rgba(0,0,0,0.2)`
                       }}
