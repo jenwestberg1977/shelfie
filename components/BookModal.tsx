@@ -45,11 +45,45 @@ const BookModal: React.FC<BookModalProps> = ({ book, globalTags, onClose, onSave
   useEffect(() => { if (editingAuthor) authorInputRef.current?.focus(); }, [editingAuthor]);
   useEffect(() => { if (editingPages) pagesInputRef.current?.focus(); }, [editingPages]);
 
+  const getLocalDate = () => new Date().toLocaleDateString('en-CA');
+
+  useEffect(() => {
+    const today = getLocalDate();
+    setEditedBook(prev => {
+      // If no sessions, add a default one with today's date
+      if (prev.sessions.length === 0) {
+        return {
+          ...prev,
+          sessions: [{
+            id: Math.random().toString(36).substr(2, 9),
+            startDate: today,
+            endDate: today,
+            format: 'Physical Book',
+          }]
+        };
+      }
+      
+      // If sessions exist but have empty dates, fill them with today
+      const updatedSessions = prev.sessions.map(s => ({
+        ...s,
+        startDate: s.startDate || today,
+        endDate: s.endDate || today,
+      }));
+
+      const hasChanges = JSON.stringify(updatedSessions) !== JSON.stringify(prev.sessions);
+      if (hasChanges) {
+        return { ...prev, sessions: updatedSessions };
+      }
+      return prev;
+    });
+  }, []);
+
   const addSession = () => {
+    const today = getLocalDate();
     const newSession: ReadingSession = {
       id: Math.random().toString(36).substr(2, 9),
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
+      startDate: today,
+      endDate: today,
       format: 'Physical Book',
     };
     setEditedBook(prev => ({ ...prev, sessions: [...prev.sessions, newSession] }));
